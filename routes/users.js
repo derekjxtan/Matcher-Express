@@ -1,14 +1,18 @@
-var express = require('express');
-var bodyParser = require('body-parser');
-var passport = require('passport');
-var authenticate = require('../authenticate');
+const express = require('express');
+const bodyParser = require('body-parser');
+const passport = require('passport');
+const authenticate = require('../authenticate');
 const User = require('../models/users');
+const cors = require('./cors');
 
 var router = express.Router();
+
 router.use(bodyParser.json());
 
+router.options('*', cors.corsWithOptions, (req, res) => {res.sendStatus(200);})
+
 /* GET users listing. */
-router.get('/', authenticate.verifyUser, authenticate.verifyAdmin, function(req, res, next) {
+router.get('/', cors.corsWithOptions, authenticate.verifyUser, authenticate.verifyAdmin, function(req, res, next) {
   User.find({})
   .then((users) => {
     res.statusCode = 200;
@@ -19,7 +23,7 @@ router.get('/', authenticate.verifyUser, authenticate.verifyAdmin, function(req,
 });
 
 // Register
-router.post('/register', (req, res, next) => {
+router.post('/register', cors.corsWithOptions, (req, res, next) => {
   User.register(new User({username: req.body.username}), req.body.password, (err, user) => {
     if (err) {
       res.statusCode = 500;
@@ -45,7 +49,7 @@ router.post('/register', (req, res, next) => {
 });
 
 // Login
-router.post('/login', (req, res, next) => {
+router.post('/login', cors.corsWithOptions, (req, res, next) => {
   passport.authenticate('local', (err, user, info) => {
     if (err) {
       return next(err);
@@ -70,7 +74,7 @@ router.post('/login', (req, res, next) => {
   }) (req, res, next);
 });
 
-router.get('/checkJWTtoken', (req, res) => {
+router.get('/checkJWTtoken', cors.corsWithOptions, (req, res) => {
   passport.authenticate('jwt', {session: false}, (err, user, info) => {
     if (err) {
       return next(err);
@@ -90,7 +94,7 @@ router.get('/checkJWTtoken', (req, res) => {
 })
 
 // Logout
-router.get('/logout', (req, res, next) => {
+router.get('/logout', cors.corsWithOptions, (req, res, next) => {
   if (req.session) {
     req.session.destroy();
     res.clearCookie('session-id');
