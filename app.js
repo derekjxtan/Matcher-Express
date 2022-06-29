@@ -9,6 +9,7 @@ const config = require('./config');
 
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
+const matchRouter = require('./routes/matchRouter');
 
 mongoose.connect(config.mongoUrl,
   {
@@ -51,6 +52,7 @@ app.use(session({
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
+app.use('/match', matchRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

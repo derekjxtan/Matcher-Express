@@ -23,6 +23,9 @@ router.get('/', cors.corsWithOptions, authenticate.verifyUser, authenticate.veri
 });
 
 // Register
+// TODO:
+// Fix error in cors, likely server side issue
+// last diagonsis: server cors.corsWithOptions not being called
 router.post('/register', cors.corsWithOptions, (req, res, next) => {
   User.register(new User({username: req.body.username}), req.body.password, (err, user) => {
     if (err) {
@@ -58,6 +61,7 @@ router.post('/login', cors.corsWithOptions, (req, res, next) => {
       res.statusCode = 401;
       res.setHeader("Content-Type", "application/json");
       res.json({sucesss: false, status: "Login Unsuccessful", err: info});
+      return;
     }
     req.logIn(user, (err) => {
       if (err) {
@@ -98,7 +102,6 @@ router.get('/logout', cors.corsWithOptions, (req, res, next) => {
   if (req.session) {
     req.session.destroy();
     res.clearCookie('session-id');
-    res.redirect('/');
   }
   else {
     var err = new Error('You are not logged in');
