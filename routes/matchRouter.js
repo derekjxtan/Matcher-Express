@@ -27,8 +27,8 @@ matchRouter.route('/')
             // set creator field of req
             req.body.creator = req.user._id;
             // convert string of setitems into an array
-            req.body.set1items = req.body.set1items.split('\n');
-            req.body.set2items = req.body.set2items.split('\n');
+            req.body.set1items = req.body.set1items.trim().split('\n');
+            req.body.set2items = req.body.set2items.trim().split('\n');
             Matches.create(req.body)
             .then((match) => {
                 Matches.findById(match._id)
@@ -91,6 +91,8 @@ matchRouter.route('/:matchId')
                     return next(err);
                 }
                 else {
+                    req.body.set1items = req.body.set1items.trim().split('\n');
+                    req.body.set2items = req.body.set2items.trim().split('\n');
                     Matches.findByIdAndUpdate(match._id, {
                         $set: req.body
                     }, {new: true})
@@ -137,6 +139,120 @@ matchRouter.route('/:matchId')
                 return next(err);
             }
         }, (err) => next(err))
+        .catch((err) => next(err));
+    });
+
+matchRouter.route('/:matchId/response')
+    .options(cors.corsWithOptions, (req, res) => {res.sendStatus(200)})
+    // Not supported
+    .get(cors.cors, (req, res, next) => {
+        res.statusCode = 403;
+        res.end('GET operation not supported on /matches/' + req.params.matchId + '/response');
+    })
+    // post a new response to the database
+    .post(cors.corsWithOptions, (req, res, next) => {
+        Matches.findById(req.params.matchId)
+        .then((match) => {
+            match.response.push(req.body);
+            match.save()
+            .then((match) => {
+                Matches.findById(match._id)
+                .then((match) => {
+                    res.statusCode = 200;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.json(match);
+                });
+            })
+            .catch((err) => next(err));
+        })
+        .catch((err) => next(err));
+    })
+    // not supported
+    .put(cors.corsWithOptions, (req, res, next) => {
+        res.statusCode = 403;
+        res.end('PUT operation not supported on /matches/' + req.params.matchId + '/response');
+    })
+    // delete all existing responses
+    .delete(cors.corsWithOptions, (req, res, next) => {
+        Matches.findByIdAndUpdate(req.params.matchId, {
+            $set: {response: []}
+        }, {new: true})
+        .then((match) => {
+            if (!match) {
+                var err = new Error("Match not found");
+                err.status = 404;
+                next(err);
+                return
+            }
+            else {
+                Matches.findById(match._id)
+                .then((match) => {
+                    res.statusCode = 200,
+                    res.setHeader('Content-Type', 'application/json');
+                    res.json(match);
+                });
+            }
+        })
+        .catch((err) => next(err));
+    });
+
+matchRouter.route('/:matchId/response/:responseId')
+    .options(cors.cors, (req, res) => {res.sendStatus(200)})
+    .get(cors.cors, (req, res, next) => {
+        res.statusCode = 403;
+        res.end('GET operation not supported on /matches/' + req.params.matchId + '/response/' + req.params.responseId);
+    })
+    .post(cors.corsWithOptions, (req, res, next) => {
+        res.statusCode = 403;
+        res.end('POST operation not supported on /matches/' + req.params.matchId + '/response/' + req.params.responseId);
+    })
+    .put(cors.corsWithOptions, (req, res, next) => {
+        Matches.findById(req.params.matchId)
+        .then((match) => {
+            if (match) {
+                match.response.pull({_id: req.params.responseId});
+                match.response.push(req.body);
+                match.save()
+                .then((match) => {
+                    Matches.findById(match._id)
+                    .then((match) => {
+                        res.statusCode = 200;
+                        res.setHeader('Content-Type', 'application/json');
+                        res.json(match);
+                    });
+                });
+            }
+            else {
+                var err = new Error("Match not found");
+                err.status = 404;
+                next(err);
+                return
+            }
+        })
+        .catch((err) => next(err));
+    })
+    .delete(cors.corsWithOptions, (req, res, next) => {
+        Matches.findById(req.params.matchId)
+        .then((match) => {
+            if (match) {
+                match.response.pull({_id: req.params.responseId});
+                match.save()
+                .then((match) => {
+                    Matches.findById(match._id)
+                    .then((match) => {
+                        res.statusCode = 200;
+                        res.setHeader('Content-Type', 'application/json');
+                        res.json(match);
+                    });
+                });
+            }
+            else {
+                var err = new Error("Match not found");
+                err.status = 404;
+                next(err);
+                return
+            }
+        })
         .catch((err) => next(err));
     });
 

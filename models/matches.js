@@ -63,7 +63,7 @@ const matchSchema = new Schema({
         }]
     },
     response: [responseSchema],
-    result: []
+    result: [resultSchema]
 }, {
     timestamps: true
 });
