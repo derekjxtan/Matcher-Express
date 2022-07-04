@@ -173,24 +173,32 @@ matchRouter.route('/:matchId/response')
         res.end('PUT operation not supported on /matches/' + req.params.matchId + '/response');
     })
     // delete all existing responses
-    .delete(cors.corsWithOptions, (req, res, next) => {
-        Matches.findByIdAndUpdate(req.params.matchId, {
-            $set: {response: []}
-        }, {new: true})
+    .delete(cors.corsWithOptions, authenticate.verifyUser, (req, res, next) => {
+        Matches.findById(req.params.matchId)
         .then((match) => {
             if (!match) {
-                var err = new Error("Match not found");
+                var err = new Error('Match ' + req.params.matchId + ' not found');
                 err.status = 404;
-                next(err);
-                return
+                return next(err);
             }
             else {
-                Matches.findById(match._id)
-                .then((match) => {
-                    res.statusCode = 200,
-                    res.setHeader('Content-Type', 'application/json');
-                    res.json(match);
-                });
+                if (match.creator.equals(req.user._id)) {
+                    match.response = [];
+                    match.save()
+                    .then((match) => {
+                        Matches.findById(match._id)
+                        .then((match) => {
+                            res.statusCode = 200,
+                            res.setHeader('Content-Type', 'application/json');
+                            res.json(match);
+                        });
+                    });
+                }
+                else {
+                    var err = new Error('You are not authorized to delete this comment!');
+                    err.status = 403;
+                    return next(err);
+                }
             }
         })
         .catch((err) => next(err));
@@ -255,5 +263,121 @@ matchRouter.route('/:matchId/response/:responseId')
         })
         .catch((err) => next(err));
     });
+
+matchRouter.route('/:matchId/result')
+    .options(cors.cors, (req, res) => {res.sendStatus(200)})
+    // generate results
+    // Algorithm used: min-cut max-flow
+    .get(cors.corsWithOptions, (req, res, next) => {
+
+        class Node{
+            constructor(value, position) {
+                this.neighbours = [];
+                this.value = value;
+                this.position = position;
+            }
+
+            addNeighbour(neighbour) {
+                this.neighbours.push(neighbour);
+            }
+        };
+
+        Matches.findById(req.params.matchId)
+        .then((match) => {
+            var dict = {};
+            var left = [], right = [];
+            // read from set 1 and set 2 to generate graph nodes
+            for (var i = 0; i < match.set1items.length; i++) {
+                newNode = new Node(match.set1items[i], i);
+                left.push(newNode);
+                dict[match.set1items[i]] = newNode;
+            };
+            for (var i = 0; i < match.set2items.length; i++) {
+                newNode = new Node(match.set2items[i], i);
+                right.push(newNode);
+                dict[match.set2items[i]] = newNode;
+            };
+            // read from match.response to generate graph
+            for (var i = 0; i < match.response.length; i++) {
+                var parent = dict[match.response[i].parent];
+                for (var j = 0; j < match.response[i].children.length; j++) {
+                    parent.addNeighbour(dict[match.response[i].children[j]]);
+                };
+            };
+            // TODO:
+            // use max flow min cut algo to produce result
+            const results = maxBipartiteMatch(left, right);
+            // push result into match.result and return match
+            for (var i = 0; i < results.length; i++) {
+                match.result.push({parent: results[i].value, child: right[i].value});
+            }
+            // save result
+            match.save()
+            .then((match) => {
+                Matches.findById(match._id)
+                .then((match) => {
+                    res.statusCode = 200;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.json(match);
+                });
+            });
+        })
+        .catch((err) => next(err));
+    })
+    // not supported
+    .post(cors.corsWithOptions, (req, res, next) => {
+        res.statusCode = 403;
+        res.end('POST operation not supported on /matches/' + req.params.matchId + '/result');
+    })
+    // not supported
+    .put(cors.corsWithOptions, (req, res, next) => {
+        res.statusCode = 403;
+        res.end('PUT operation not supported on /matches/' + req.params.matchId + '/result');
+    })
+    // not supported
+    .delete(cors.corsWithOptions, (req, res, next) => {
+        res.statusCode = 403;
+        res.end('DELETE operation not supported on /matches/' + req.params.matchId + '/result');
+    })
+
+function maxBipartiteMatch(leftArray, rightArray) {
+    // Keep track of matching result
+    let matchResult = new Array(rightArray.length);
+    for (var i = 0; i < rightArray.length; i++) {
+        matchResult[i] = null;
+    };
+    for (var j = 0; j < leftArray.length; j++) {
+        // keep track of which node have been visited
+        let visited = new Array(rightArray.length);
+        // reset all node to not visited
+        for (var k = 0; k < rightArray.length; k++) {
+            visited[k] = null;
+        }
+        // run depth first search of each node to generate pairing
+        dfs(leftArray[j], visited, matchResult);
+    };
+
+    return matchResult;
+};
+
+function dfs(node, visited, matchResult) {
+    // loop through all neighbours of node
+    for (var i = 0; i < node.neighbours.length; i++) {
+        // check whether neighbour has been visited
+        var neighbourPos = node.neighbours[i].position;
+        if (visited[neighbourPos] === null) {
+            // mark neighbour as visited
+            visited[neighbourPos] = true;
+            // if neighbour has not been assigned a match or if initially assigned match has another option,
+            // assign match to neighbour and return true
+            if (matchResult[neighbourPos] === null || 
+                dfs(matchResult[neighbourPos], visited, matchResult)) {
+                    matchResult[neighbourPos] = node;
+                    return true;
+            };
+        };
+    }
+    return false;
+};
 
 module.exports = matchRouter;
