@@ -284,6 +284,7 @@ matchRouter.route('/:matchId/result')
 
         Matches.findById(req.params.matchId)
         .then((match) => {
+            match.result = [];
             var dict = {};
             var left = [], right = [];
             // read from set 1 and set 2 to generate graph nodes
@@ -311,6 +312,7 @@ matchRouter.route('/:matchId/result')
             for (var i = 0; i < results.length; i++) {
                 match.result.push({parent: results[i].value, child: right[i].value});
             }
+            match.solved = true;
             // save result
             match.save()
             .then((match) => {
