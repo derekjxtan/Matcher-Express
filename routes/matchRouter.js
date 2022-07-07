@@ -285,24 +285,24 @@ matchRouter.route('/:matchId/result')
         Matches.findById(req.params.matchId)
         .then((match) => {
             match.result = [];
-            var dict = {};
+            var leftDict = {}, rightDict = {};
             var left = [], right = [];
             // read from set 1 and set 2 to generate graph nodes
             for (var i = 0; i < match.set1items.length; i++) {
                 newNode = new Node(match.set1items[i], i);
                 left.push(newNode);
-                dict[match.set1items[i]] = newNode;
+                leftDict[match.set1items[i]] = newNode;
             };
             for (var i = 0; i < match.set2items.length; i++) {
                 newNode = new Node(match.set2items[i], i);
                 right.push(newNode);
-                dict[match.set2items[i]] = newNode;
+                rightDict[match.set2items[i]] = newNode;
             };
             // read from match.response to generate graph
             for (var i = 0; i < match.response.length; i++) {
-                var parent = dict[match.response[i].parent];
+                var parent = leftDict[match.response[i].parent];
                 for (var j = 0; j < match.response[i].children.length; j++) {
-                    parent.addNeighbour(dict[match.response[i].children[j]]);
+                    parent.addNeighbour(rightDict[match.response[i].children[j]]);
                 };
             };
             // TODO:
@@ -310,8 +310,10 @@ matchRouter.route('/:matchId/result')
             const results = maxBipartiteMatch(left, right);
             // push result into match.result and return match
             for (var i = 0; i < results.length; i++) {
-                match.result.push({parent: results[i].value, child: right[i].value});
-            }
+                if (results[i] !== null) {
+                    match.result.push({parent: results[i].value, child: right[i].value});
+                };
+            };
             match.solved = true;
             // save result
             match.save()

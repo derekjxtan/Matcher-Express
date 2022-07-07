@@ -45,10 +45,11 @@ router.post('/register', cors.corsWithOptions, (req, res, next) => {
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json');
           res.json({success: true, status: "Registration successful"});
-        })
-      })
+        });
+      });
     }
-  });
+  })
+  .catch((err) => next(err));
 });
 
 // Login
